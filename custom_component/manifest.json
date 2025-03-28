@@ -1,0 +1,12 @@
+{
+    "domain": "sportyhq",
+    "name": "SportyHQ",
+    "version": "1.0.0",
+    "documentation": "https://www.example.com/sportyhq-docs",
+    "requirements": [
+        "beautifulsoup4==4.12.2"
+    ],
+    "dependencies": [],
+    "codeowners": ["@your-github-username"],
+    "config_flow": true
+}
