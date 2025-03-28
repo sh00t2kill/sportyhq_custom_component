@@ -9,7 +9,7 @@ from aiohttp import ClientSession
 from bs4 import BeautifulSoup
 from http.cookies import SimpleCookie
 
-DOMAIN = "sportyhq"
+from .const import DOMAIN
 _LOGGER = logging.getLogger(__name__)
 
 async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:

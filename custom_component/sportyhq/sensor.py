@@ -2,7 +2,7 @@ from homeassistant.components.sensor import SensorEntity
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 import logging
 
-DOMAIN = "sportyhq"
+from .const import DOMAIN
 _LOGGER = logging.getLogger(__name__)
 
 SENSOR_TYPES = {
