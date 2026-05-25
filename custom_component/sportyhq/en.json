@@ -3,10 +3,20 @@
     "step": {
       "user": {
         "title": "Connect to SportyHQ",
-        "description": "Enter your SportyHQ credentials.",
+        "description": "Paste your SportyHQ session cookie value (sportyhq_v10).\n\nTo find it: log in to sportyhq.com in your browser with 'Remember me' ticked, then open DevTools → Application → Cookies → www.sportyhq.com and copy the value of the cookie named **sportyhq_v10**.",
         "data": {
-          "email": "Email",
-          "password": "Password"
+          "session_cookie": "Session Cookie (sportyhq_v10)"
+        }
+      }
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Update SportyHQ Session Cookie",
+        "description": "Paste a fresh sportyhq_v10 cookie value if your session has expired.",
+        "data": {
+          "session_cookie": "Session Cookie (sportyhq_v10)"
         }
       }
     }

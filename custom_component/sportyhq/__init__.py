@@ -3,13 +3,11 @@ from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator
 from datetime import timedelta
-import asyncio
 import logging
-from aiohttp import ClientSession
+from aiohttp import ClientSession, CookieJar
 from bs4 import BeautifulSoup
-from http.cookies import SimpleCookie
 
-from .const import DOMAIN
+from .const import DOMAIN, SESSION_COOKIE_NAME
 _LOGGER = logging.getLogger(__name__)
 
 async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
@@ -18,37 +16,28 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
 
     async def async_fetch_data():
         """Fetch data from SportyHQ."""
-        base_url = "https://www.sportyhq.com/login"
-        login_url = "https://www.sportyhq.com/authentication/login"
         my_stats_url = "https://www.sportyhq.com/my_stats"
 
-        user_agent_header = {
-            'User-Agent': "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/113.0.0.0 Safari/537.36"
+        headers = {
+            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/113.0.0.0 Safari/537.36"
         }
 
-        async with ClientSession() as session:
-            # Fetch CSRF token
-            async with session.get(base_url, headers=user_agent_header) as login_response:
-                raw_cookies = login_response.headers.get("Set-Cookie", "")
-                cookie = SimpleCookie(raw_cookies)
-                csrf_token = cookie.get("sportyhq_cookie_v6sportyhq_csrf_cookie").value if cookie.get("sportyhq_cookie_v6sportyhq_csrf_cookie") else None
-                _LOGGER.debug("CSRF token: %s", csrf_token)
+        # Use an unsafe cookie jar so the bare domain cookie is accepted
+        jar = CookieJar(unsafe=True)
+        async with ClientSession(cookie_jar=jar) as session:
+            session.cookie_jar.update_cookies(
+                {SESSION_COOKIE_NAME: entry.data["session_cookie"]},
+                response_url=__import__("yarl").URL("https://www.sportyhq.com"),
+            )
 
-            # Login
-            login_data = {
-                "sportyhq_csrf_token": csrf_token,
-                "email": entry.data["email"],
-                "password": entry.data["password"],
-                "remember_me": "yes",
-            }
-            _LOGGER.debug("Login data: %s", login_data)
-            async with session.post(login_url, data=login_data, headers=user_agent_header) as login_post_response:
-                if login_post_response.status != 200:
-                    _LOGGER.error("Failed to log in to SportyHQ")
+            async with session.get(my_stats_url, headers=headers, allow_redirects=True) as stats_response:
+                final_url = str(stats_response.url)
+                if "my_stats" not in final_url:
+                    _LOGGER.error(
+                        "SportyHQ: redirected to %s — session cookie is expired or invalid",
+                        final_url,
+                    )
                     return {}
-
-            # Fetch stats
-            async with session.get(my_stats_url, headers=user_agent_header) as stats_response:
                 stats_page_content = await stats_response.text()
 
         soup = BeautifulSoup(stats_page_content, "html.parser")

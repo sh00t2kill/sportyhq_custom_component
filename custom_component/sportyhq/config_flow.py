@@ -14,8 +14,7 @@ class SportyHQConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             step_id="user",
             data_schema=vol.Schema(
                 {
-                    vol.Required("email"): str,
-                    vol.Required("password"): str,
+                    vol.Required("session_cookie"): str,
                 }
             ),
         )
@@ -43,8 +42,10 @@ class SportyHQOptionsFlowHandler(config_entries.OptionsFlow):
             step_id="init",
             data_schema=vol.Schema(
                 {
-                    vol.Required("email", default=self.config_entry.data.get("email")): str,
-                    vol.Required("password", default=self.config_entry.data.get("password")): str,
+                    vol.Required(
+                        "session_cookie",
+                        default=self.config_entry.data.get("session_cookie"),
+                    ): str,
                 }
             ),
         )
