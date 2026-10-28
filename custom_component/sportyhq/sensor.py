@@ -1,6 +1,7 @@
 from homeassistant.components.sensor import SensorEntity
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 import logging
+import re
 
 from .const import DOMAIN
 _LOGGER = logging.getLogger(__name__)
@@ -10,6 +11,11 @@ SENSOR_TYPES = {
         "name": "SportyHQ Rating",
         "unit_of_measurement": "points",
         "icon": "mdi:racquetball",
+    },
+    "rating_last_change": {
+        "name": "SportyHQ Rating Last Change",
+        "unit_of_measurement": "points",
+        "icon": "mdi:plus-minus-variant",
     },
     "rating_confidence": {
         "name": "SportyHQ Rating Confidence",
@@ -46,8 +52,14 @@ class SportyHQSensor(CoordinatorEntity, SensorEntity):
         # Log the data being accessed for debugging
         _LOGGER.debug("Accessing state for sensor '%s': %s", self._sensor_type, self.coordinator.data)
         raw_value = self.coordinator.data.get(self._sensor_type)
+        if not raw_value:
+            return None
+        if self._sensor_type == "rating_last_change":
+            # e.g. "Last change: -1 points" -> "-1" (keep the sign)
+            match = re.search(r"[-+−]?\s*\d+", raw_value)
+            return match.group().replace("−", "-").replace(" ", "").lstrip("+") if match else None
         # Strip out anything that's not numeric
-        return ''.join(filter(str.isdigit, raw_value)) if raw_value else None
+        return ''.join(filter(str.isdigit, raw_value))
 
     @property
     def unit_of_measurement(self):

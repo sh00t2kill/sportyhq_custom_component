@@ -41,17 +41,39 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
                 stats_page_content = await stats_response.text()
 
         soup = BeautifulSoup(stats_page_content, "html.parser")
-        rating_group = soup.find("div", class_="card-group mb-4")
-
         data = {}
-        if rating_group:
-            cards = rating_group.find_all("div", class_="card")
-            data = {
-                "sportyhq_rating": cards[0].find("h6").text,
-                "rating_confidence": cards[1].find("h6").text,
-                "matches_ytd": cards[2].find("h6").text,
-                "matches_all_time": cards[3].find("h6").text,
-            }
+
+        # Current layout: cards with a label (p.shq-metric-label) and value (div.shq-metric-value)
+        label_keys = {
+            "sportyhq rating": "sportyhq_rating",
+            "rating confidence": "rating_confidence",
+            "matches ytd": "matches_ytd",
+            "matches all time": "matches_all_time",
+        }
+        for card in soup.select("div.shq-metric"):
+            label = card.select_one(".shq-metric-label")
+            value = card.select_one(".shq-metric-value")
+            if label and value:
+                key = label_keys.get(label.get_text(strip=True).lower())
+                if key:
+                    data[key] = value.get_text(strip=True)
+                    if key == "sportyhq_rating":
+                        # e.g. "Last change: -1 points"
+                        detail = card.select_one(".shq-metric-detail")
+                        if detail:
+                            data["rating_last_change"] = detail.get_text(strip=True)
+
+        # Legacy layout fallback: positional cards with <h6> values
+        if not data:
+            rating_group = soup.find("div", class_="card-group mb-4")
+            if rating_group:
+                cards = rating_group.find_all("div", class_="card")
+                data = {
+                    "sportyhq_rating": cards[0].find("h6").text,
+                    "rating_confidence": cards[1].find("h6").text,
+                    "matches_ytd": cards[2].find("h6").text,
+                    "matches_all_time": cards[3].find("h6").text,
+                }
 
         _LOGGER.debug("Fetched data from SportyHQ: %s", data)
         return data
@@ -61,7 +83,8 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         _LOGGER,
         name="sportyhq",
         update_method=async_fetch_data,
-        update_interval=timedelta(minutes=60),  # Fix: Use timedelta from datetime
+        update_interval=timedelta(minutes=60),
+        config_entry=entry,
     )
 
     await coordinator.async_config_entry_first_refresh()
