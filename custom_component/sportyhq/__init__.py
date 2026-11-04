@@ -8,6 +8,7 @@ from aiohttp import ClientSession, CookieJar
 from bs4 import BeautifulSoup
 
 from .const import DOMAIN, SESSION_COOKIE_NAME
+from .stats_parser import parse_stats
 _LOGGER = logging.getLogger(__name__)
 
 async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
@@ -40,40 +41,22 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
                     return {}
                 stats_page_content = await stats_response.text()
 
-        soup = BeautifulSoup(stats_page_content, "html.parser")
-        data = {}
+        data = parse_stats(stats_page_content)
 
-        # Current layout: cards with a label (p.shq-metric-label) and value (div.shq-metric-value)
-        label_keys = {
-            "sportyhq rating": "sportyhq_rating",
-            "rating confidence": "rating_confidence",
-            "matches ytd": "matches_ytd",
-            "matches all time": "matches_all_time",
-        }
-        for card in soup.select("div.shq-metric"):
-            label = card.select_one(".shq-metric-label")
-            value = card.select_one(".shq-metric-value")
-            if label and value:
-                key = label_keys.get(label.get_text(strip=True).lower())
-                if key:
-                    data[key] = value.get_text(strip=True)
-                    if key == "sportyhq_rating":
-                        # e.g. "Last change: -1 points"
-                        detail = card.select_one(".shq-metric-detail")
-                        if detail:
-                            data["rating_last_change"] = detail.get_text(strip=True)
-
-        # Legacy layout fallback: positional cards with <h6> values
         if not data:
-            rating_group = soup.find("div", class_="card-group mb-4")
-            if rating_group:
-                cards = rating_group.find_all("div", class_="card")
-                data = {
-                    "sportyhq_rating": cards[0].find("h6").text,
-                    "rating_confidence": cards[1].find("h6").text,
-                    "matches_ytd": cards[2].find("h6").text,
-                    "matches_all_time": cards[3].find("h6").text,
-                }
+            soup = BeautifulSoup(stats_page_content, "html.parser")
+            title = soup.title.get_text(strip=True) if soup.title else "<no title>"
+            _LOGGER.warning(
+                "SportyHQ: loaded %s (title: %r) but could not find any stats. "
+                "The page layout may have changed or a bot-check page was returned. "
+                "Enable debug logging to see the page content.",
+                final_url,
+                title,
+            )
+            _LOGGER.debug(
+                "SportyHQ page content (first 3000 chars): %s",
+                stats_page_content[:3000],
+            )
 
         _LOGGER.debug("Fetched data from SportyHQ: %s", data)
         return data
